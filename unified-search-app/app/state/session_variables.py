@@ -32,6 +32,7 @@ class SessionVariables:
         self.include_global_search = QueryVariable("include_global_search", True)
         self.include_local_search = QueryVariable("include_local_search", True)
         self.include_drift_search = QueryVariable("include_drift_search", False)
+        self.include_deep_search = QueryVariable("include_deep_search", False)
         self.include_basic_rag = QueryVariable("include_basic_rag", False)
 
         self.selected_report = SessionVariable()

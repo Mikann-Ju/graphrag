@@ -35,6 +35,7 @@ from graphrag.config.models.graph_rag_config import GraphRagConfig
 from graphrag.logger.standard_logging import init_loggers
 from graphrag.query.factory import (
     get_basic_search_engine,
+    get_deep_search_engine,
     get_drift_search_engine,
     get_global_search_engine,
     get_local_search_engine,
@@ -1209,3 +1210,218 @@ async def multi_index_basic_search(
         query=query,
         callbacks=callbacks,
     )
+
+
+@validate_call(config={"arbitrary_types_allowed": True})
+async def deep_search(
+    config: GraphRagConfig,
+    entities: pd.DataFrame,
+    communities: pd.DataFrame,
+    community_reports: pd.DataFrame,
+    text_units: pd.DataFrame,
+    relationships: pd.DataFrame,
+    covariates: dict[str, pd.DataFrame] | None = None,
+    response_type: str = "multiple paragraphs",
+    query: str = "",
+    callbacks: list[QueryCallbacks] | None = None,
+    verbose: bool = False,
+) -> tuple[
+    str | dict[str, Any] | list[dict[str, Any]],
+    str | list[pd.DataFrame] | dict[str, pd.DataFrame],
+]:
+    """Perform a deep search and return the context data and response.
+
+    Parameters
+    ----------
+    - config (GraphRagConfig): A graphrag configuration (from settings.yaml)
+    - entities (pd.DataFrame): A DataFrame containing the final entities (from entities.parquet)
+    - communities (pd.DataFrame): A DataFrame containing the final communities (from communities.parquet) 
+    - community_reports (pd.DataFrame): A DataFrame containing the final community reports (from community_reports.parquet)
+    - text_units (pd.DataFrame): A DataFrame containing the final text units (from text_units.parquet)
+    - relationships (pd.DataFrame): A DataFrame containing the final relationships (from relationships.parquet)
+    - covariates (dict[str, pd.DataFrame]): An optional dictionary of covariates DataFrames
+    - response_type (str): The type of response to return.
+    - query (str): The user query to search for.
+    - callbacks (list[QueryCallbacks]): A list of callbacks to use for the search.
+    - verbose (bool): Whether to enable verbose logging.
+
+    Returns
+    -------
+    TODO: Document the search response type and format.
+    """
+    init_loggers(config=config, verbose=verbose)
+
+    callbacks = callbacks or []
+    full_response = ""
+    context_data = {}
+    
+    # 读取数据 
+    final_entities = read_indexer_entities(entities)
+    final_relationships = read_indexer_relationships(relationships)
+    final_text_units = read_indexer_text_units(text_units)
+    final_community_reports = read_indexer_reports(community_reports)
+    final_communities = read_indexer_communities(communities)
+    final_covariates = {}
+    if covariates:
+        final_covariates = {
+            key: read_indexer_covariates(df) for key, df in covariates.items()
+        }
+
+    # 设置向量存储
+    description_embedding_store = get_embedding_store(
+        config=config,
+        embedding_name=entity_description_embedding,
+        entities=final_entities,
+    )
+
+    # 创建本地搜索引擎（用于DeepSearch）
+    local_search_engine = get_local_search_engine(
+        config=config,
+        reports=final_community_reports,
+        text_units=final_text_units,
+        entities=final_entities,
+        relationships=final_relationships,
+        covariates=final_covariates,
+        response_type=response_type,
+        description_embedding_store=description_embedding_store,
+        callbacks=callbacks,
+    )
+
+    # 创建全局搜索引擎（用于DeepSearch）
+    global_search_engine = get_global_search_engine(
+        config=config,
+        reports=final_community_reports,
+        entities=final_entities,
+        communities=final_communities,
+        response_type=response_type,
+        callbacks=callbacks,
+    )
+
+    # 创建DeepSearch引擎
+    search_engine = get_deep_search_engine(
+        config=config,
+        reports=final_community_reports,
+        text_units=final_text_units,
+        entities=final_entities,
+        relationships=final_relationships,
+        covariates=final_covariates,
+        response_type=response_type,
+        description_embedding_store=description_embedding_store,
+        local_search=local_search_engine,
+        global_search=global_search_engine,
+        callbacks=callbacks,
+    )
+
+    # 获取系统提示
+    system_prompt = load_search_prompt(
+        config=config,
+        default_prompt=search_engine.system_prompt,
+        prompt_key="deep_search",
+    )
+
+    # 执行深度搜索
+    result = await search_engine.search(query=query)
+    full_response = result.response
+    
+    # 构建上下文数据
+    context_data = {
+        "logic_chain": result.logic_chain.to_visualization_data() if result.logic_chain else {},
+        "search_depth": result.search_depth,
+        "path_count": result.path_count,
+        "llm_calls": result.llm_calls,
+        "prompt_tokens": result.prompt_tokens,
+        "output_tokens": result.output_tokens,
+        "completion_time": result.completion_time,
+    }
+
+    return full_response, context_data
+
+
+@validate_call(config={"arbitrary_types_allowed": True})
+async def deep_search_streaming(
+    config: GraphRagConfig,
+    entities: pd.DataFrame,
+    communities: pd.DataFrame,
+    community_reports: pd.DataFrame,
+    text_units: pd.DataFrame,
+    relationships: pd.DataFrame,
+    covariates: dict[str, pd.DataFrame] | None = None,
+    response_type: str = "multiple paragraphs",
+    query: str = "",
+    callbacks: list[QueryCallbacks] | None = None,
+    verbose: bool = False,
+) -> AsyncGenerator[str, None]:
+    """Perform a streaming deep search and yield the results.
+
+    Parameters
+    ----------
+    Same as deep_search function.
+
+    Yields
+    ------
+    str: Streaming response chunks from the deep search.
+    """
+    init_loggers(config=config, verbose=verbose)
+
+    callbacks = callbacks or []
+    
+    # 读取数据 
+    final_entities = read_indexer_entities(entities)
+    final_relationships = read_indexer_relationships(relationships)
+    final_text_units = read_indexer_text_units(text_units)
+    final_community_reports = read_indexer_reports(community_reports)
+    final_communities = read_indexer_communities(communities)
+    final_covariates = {}
+    if covariates:
+        final_covariates = {
+            key: read_indexer_covariates(df) for key, df in covariates.items()
+        }
+
+    # 设置向量存储
+    description_embedding_store = get_embedding_store(
+        config=config,
+        embedding_name=entity_description_embedding,
+        entities=final_entities,
+    )
+
+    # 创建本地搜索引擎
+    local_search_engine = get_local_search_engine(
+        config=config,
+        reports=final_community_reports,
+        text_units=final_text_units,
+        entities=final_entities,
+        relationships=final_relationships,
+        covariates=final_covariates,
+        response_type=response_type,
+        description_embedding_store=description_embedding_store,
+        callbacks=callbacks,
+    )
+
+    # 创建全局搜索引擎
+    global_search_engine = get_global_search_engine(
+        config=config,
+        reports=final_community_reports,
+        entities=final_entities,
+        communities=final_communities,
+        response_type=response_type,
+        callbacks=callbacks,
+    )
+
+    # 创建DeepSearch引擎
+    search_engine = get_deep_search_engine(
+        config=config,
+        reports=final_community_reports,
+        text_units=final_text_units,
+        entities=final_entities,
+        relationships=final_relationships,
+        covariates=final_covariates,
+        response_type=response_type,
+        description_embedding_store=description_embedding_store,
+        local_search=local_search_engine,
+        global_search=global_search_engine,
+        callbacks=callbacks,
+    )
+
+    # 执行流式深度搜索
+    async for chunk in search_engine.stream_search(query=query):
+        yield chunk

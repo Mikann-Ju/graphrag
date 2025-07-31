@@ -35,6 +35,11 @@ def update_drift_search(sv: SessionVariables):
     sv.include_drift_search.value = st.session_state[sv.include_drift_search.key]
 
 
+def update_deep_search(sv: SessionVariables):
+    """Update deep search state."""
+    sv.include_deep_search.value = st.session_state[sv.include_deep_search.key]
+
+
 def update_local_search(sv: SessionVariables):
     """Update local rag state."""
     sv.include_local_search.value = st.session_state[sv.include_local_search.key]
@@ -93,5 +98,11 @@ def create_side_bar(sv: SessionVariables):
             "Include drift search",
             key=sv.include_drift_search.key,
             on_change=update_drift_search,
+            kwargs={"sv": sv},
+        )
+        st.toggle(
+            "Include deep search",
+            key=sv.include_deep_search.key,
+            on_change=update_deep_search,
             kwargs={"sv": sv},
         )

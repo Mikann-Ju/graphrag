@@ -578,3 +578,94 @@ def _resolve_output_files(
             else:
                 dataframe_dict[optional_file] = None
     return dataframe_dict
+
+
+def run_deep_search(
+    config_filepath: Path | None,
+    data_dir: Path | None,
+    root_dir: Path,
+    community_level: int | None,
+    response_type: str,
+    streaming: bool,
+    query: str,
+    verbose: bool,
+):
+    """Perform a deep search with a given query.
+
+    Loads index files required for deep search and calls the Query API.
+    """
+    root = root_dir.resolve()
+    cli_overrides = {}
+    if data_dir:
+        cli_overrides["output.base_dir"] = str(data_dir)
+    config = load_config(root, config_filepath, cli_overrides)
+
+    dataframe_dict = _resolve_output_files(
+        config=config,
+        output_list=[
+            "entities",
+            "communities", 
+            "community_reports",
+            "text_units",
+            "relationships",
+        ],
+        optional_list=["covariates"],
+    )
+
+    final_entities: pd.DataFrame = dataframe_dict["entities"]
+    final_communities: pd.DataFrame = dataframe_dict["communities"]
+    final_community_reports: pd.DataFrame = dataframe_dict["community_reports"]
+    final_text_units: pd.DataFrame = dataframe_dict["text_units"]
+    final_relationships: pd.DataFrame = dataframe_dict["relationships"]
+    final_covariates: dict[str, pd.DataFrame] = dataframe_dict.get("covariates", {})
+
+    if streaming:
+
+        async def run_streaming_deep_search():
+            full_response = ""
+            context_data = {}
+
+            async for response in api.deep_search_streaming(
+                config=config,
+                entities=final_entities,
+                communities=final_communities,
+                community_reports=final_community_reports,
+                text_units=final_text_units,
+                relationships=final_relationships,
+                covariates=final_covariates,
+                response_type=response_type,
+                query=query,
+                verbose=verbose,
+            ):
+                print(response, end="")  # noqa: T201
+                full_response += response
+
+            logger.info("Deep Search Response: %s", full_response)
+            return full_response, context_data
+
+        # Run the streaming query
+        logger.info("Running deep search with streaming...")
+        asyncio.run(run_streaming_deep_search())
+
+    else:
+        logger.info("Running deep search...")
+        response, context_data = asyncio.run(
+            api.deep_search(
+                config=config,
+                entities=final_entities,
+                communities=final_communities,
+                community_reports=final_community_reports,
+                text_units=final_text_units,
+                relationships=final_relationships,
+                covariates=final_covariates,
+                response_type=response_type,
+                query=query,
+                verbose=verbose,
+            )
+        )
+        # log the full response at INFO level for user visibility
+        logger.info("Deep Search Response:\n%s", response)
+
+        # NOTE: we return the response and context data here purely as a complete demonstration of the API.
+        # External users should use the API directly to get the response and context data.
+        return response, context_data

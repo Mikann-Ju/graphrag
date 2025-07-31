@@ -123,6 +123,7 @@ class SearchMethod(Enum):
     LOCAL = "local"
     GLOBAL = "global"
     DRIFT = "drift"
+    DEEP = "deep"
     BASIC = "basic"
 
     def __str__(self):

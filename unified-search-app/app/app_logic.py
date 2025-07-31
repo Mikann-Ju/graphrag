@@ -78,6 +78,14 @@ async def run_all_searches(query: str, sv: SessionVariables) -> list[SearchResul
             )
         )
 
+    if sv.include_deep_search.value:
+        tasks.append(
+            run_deep_search(
+                query=query,
+                sv=sv,
+            )
+        )
+
     if sv.include_basic_rag.value:
         tasks.append(
             run_basic_search(
@@ -346,6 +354,61 @@ async def run_basic_search(
     st.session_state["response_lengths"].append({
         "search": SearchType.Basic.value.lower(),
         "result": search_result,
+    })
+
+    return search_result
+
+
+async def run_deep_search(
+    query: str,
+    sv: SessionVariables,
+) -> SearchResult:
+    """Run deep search."""
+    print(f"Deep search query: {query}")  # noqa T201
+
+    # build deep search engine
+    response_placeholder = st.session_state[
+        f"{SearchType.Deep.value.lower()}_response_placeholder"
+    ]
+    response_container = st.session_state[f"{SearchType.Deep.value.lower()}_container"]
+
+    with response_placeholder, st.spinner("Generating answer using deep search..."):
+        empty_context_data: dict[str, pd.DataFrame] = {}
+
+        response, context_data = await api.deep_search(
+            config=sv.graphrag_config.value,
+            entities=sv.entities.value,
+            communities=sv.communities.value,
+            community_reports=sv.community_reports.value,
+            text_units=sv.text_units.value,
+            relationships=sv.relationships.value,
+            covariates=sv.covariates.value,
+            response_type="Multiple Paragraphs",
+            query=query,
+        )
+
+        print(f"Deep Response: {response}")  # noqa T201
+        print(f"Deep Context: {context_data}")  # noqa T201
+
+    search_result = SearchResult(
+        query=query,
+        response=response,
+        context_data=context_data if context_data else empty_context_data,
+        context_text="深度搜索上下文",
+        completion_time=context_data.get("completion_time", 0) if context_data else 0,
+        llm_calls=context_data.get("llm_calls", 0) if context_data else 0,
+        prompt_tokens=context_data.get("prompt_tokens", 0) if context_data else 0,
+        output_tokens=context_data.get("output_tokens", 0) if context_data else 0,
+    )
+
+    response_container.markdown(search_result.response)
+
+    if "response_lengths" not in st.session_state:
+        st.session_state.response_lengths = []
+
+    st.session_state["response_lengths"].append({
+        "result": search_result,
+        "search": SearchType.Deep.value.lower(),
     })
 
     return search_result

@@ -126,6 +126,32 @@ class DriftSearchDefaults:
 
 
 @dataclass
+class DeepSearchDefaults:
+    """Default values for deep search."""
+
+    max_depth: int = 3
+    confidence_threshold: float = 0.7
+    use_local_search: bool = True
+    use_global_search: bool = True
+    enable_path_visualization: bool = True
+    enable_logic_chain: bool = True
+    max_tokens: int = 8000
+    temperature: float = 0.0
+    top_p: float = 1.0
+    n: int = 1
+    local_search_text_unit_prop: float = 0.9
+    local_search_community_prop: float = 0.1
+    local_search_top_k_mapped_entities: int = 10
+    local_search_top_k_relationships: int = 10
+    local_search_max_data_tokens: int = 12000
+    global_search_max_data_tokens: int = 8000
+    global_search_map_max_length: int = 1000
+    global_search_reduce_max_length: int = 2000
+    llm_max_gen_tokens: int | None = None
+    llm_max_gen_completion_tokens: int | None = None
+
+
+@dataclass
 class EmbedGraphDefaults:
     """Default values for embedding graph."""
 
@@ -431,6 +457,7 @@ class GraphRagConfigDefaults:
     local_search: LocalSearchDefaults = field(default_factory=LocalSearchDefaults)
     global_search: GlobalSearchDefaults = field(default_factory=GlobalSearchDefaults)
     drift_search: DriftSearchDefaults = field(default_factory=DriftSearchDefaults)
+    deep_search: DeepSearchDefaults = field(default_factory=DeepSearchDefaults)
     basic_search: BasicSearchDefaults = field(default_factory=BasicSearchDefaults)
     vector_store: dict[str, VectorStoreDefaults] = field(
         default_factory=lambda: {DEFAULT_VECTOR_STORE_ID: VectorStoreDefaults()}

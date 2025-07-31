@@ -35,6 +35,58 @@ This repository presents a methodology for using knowledge graph memory structur
 
 ⚠️ *Warning: GraphRAG indexing can be an expensive operation, please read all of the documentation to understand the process and costs involved, and start small.*
 
+## Search Methods
+
+GraphRAG supports multiple search methods to help you find the most relevant information:
+
+- **Local Search**: Focused search on specific entities and relationships
+- **Global Search**: High-level patterns and community-based search
+- **DRIFT Search**: Dynamic search with iterative refinement
+- **🆕 Deep Search**: Advanced multi-layered search with path control and visualization logic chain
+
+### Deep Search Features
+
+Deep Search is our latest search method that combines the power of multiple search strategies with intelligent path control and transparent reasoning visualization:
+
+- **🎯 Path Control**: Intelligent planning and control of search depth and direction
+- **🔍 Logic Chain Visualization**: Complete transparency of the search process with interactive visual paths
+- **🚀 Multi-Search Fusion**: Combines local and global search advantages for comprehensive results  
+- **📊 Confidence Assessment**: Dynamic evaluation of search quality and result reliability
+- **⚡ Adaptive Depth**: Automatically adjusts search depth based on confidence thresholds
+
+#### Usage Examples
+
+**CLI:**
+```bash
+# Basic deep search
+graphrag query --method deep --query "What are the main themes in the dataset?"
+
+# Advanced deep search with streaming
+graphrag query --method deep --query "How do different entities relate?" --streaming
+```
+
+**Python API:**
+```python
+import graphrag.api as api
+
+# Perform deep search
+response, context = await api.deep_search(
+    config=config,
+    entities=entities,
+    communities=communities,
+    community_reports=reports,
+    text_units=text_units,
+    relationships=relationships,
+    query="Your search query here"
+)
+```
+
+**Web Interface:**
+Enable "Include deep search" in the unified search app to see:
+- Interactive search path visualization
+- Real-time confidence analysis
+- Detailed reasoning chain exploration
+
 ## Diving Deeper
 
 - To learn about our contribution guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md)

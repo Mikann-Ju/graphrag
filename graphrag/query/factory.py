@@ -22,6 +22,10 @@ from graphrag.query.structured_search.basic_search.basic_context import (
     BasicSearchContext,
 )
 from graphrag.query.structured_search.basic_search.search import BasicSearch
+from graphrag.query.structured_search.deep_search.deep_context import (
+    DeepSearchContextBuilder,
+)
+from graphrag.query.structured_search.deep_search.search import DeepSearch
 from graphrag.query.structured_search.drift_search.drift_context import (
     DRIFTSearchContextBuilder,
 )
@@ -301,4 +305,53 @@ def get_basic_search_engine(
             "max_context_tokens": bs_config.max_context_tokens,
         },
         callbacks=callbacks,
+    )
+
+
+def get_deep_search_engine(
+    config: GraphRagConfig,
+    reports: list[CommunityReport],
+    text_units: list[TextUnit],
+    entities: list[Entity],
+    relationships: list[Relationship],
+    covariates: dict[str, list[Covariate]],
+    response_type: str,
+    description_embedding_store: BaseVectorStore,
+    local_search: LocalSearch | None = None,
+    global_search: GlobalSearch | None = None,
+    system_prompt: str | None = None,
+    callbacks: list[QueryCallbacks] | None = None,
+) -> DeepSearch:
+    """Get a DeepSearch engine configured for deep search mode."""
+    ds_config = config.deep_search
+    
+    # 获取聊天模型配置
+    chat_model_settings = config.get_language_model_config(ds_config.chat_model_id)
+    
+    # 创建聊天模型
+    chat_model = ModelManager().get_or_create_chat_model(
+        name="deep_search_chat",
+        model_type=chat_model_settings.type,
+        config=chat_model_settings,
+    )
+    
+    token_encoder = tiktoken.get_encoding("cl100k_base")
+    
+    # 创建DeepSearch上下文构建器
+    context_builder = DeepSearchContextBuilder()
+    
+    # 创建模型参数
+    model_params = get_openai_model_parameters_from_config(chat_model_settings)
+    
+    return DeepSearch(
+        model=chat_model,
+        context_builder=context_builder,
+        local_search=local_search,
+        global_search=global_search,
+        token_encoder=token_encoder,
+        system_prompt=system_prompt,
+        max_depth=ds_config.max_depth,
+        confidence_threshold=ds_config.confidence_threshold,
+        callbacks=callbacks,
+        model_params=model_params,
     )
