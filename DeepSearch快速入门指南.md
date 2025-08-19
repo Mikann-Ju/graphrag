@@ -33,6 +33,7 @@ deep_search:
   confidence_threshold: 0.7       # 置信度阈值 (0.0-1.0)
   use_local_search: true         # 启用本地搜索
   use_global_search: true        # 启用全局搜索
+  use_drift_search: true         # 启用DRIFT搜索 (动态推理搜索)
   enable_path_visualization: true # 启用路径可视化
   enable_logic_chain: true       # 启用逻辑链追踪
 ```
@@ -45,6 +46,7 @@ deep_search:
 | `confidence_threshold` | 0.7 | 当置信度达到阈值时停止搜索 | 0.7是高质量结果的经验阈值，低于此值可能信息不充分，高于此值则要求过严 |
 | `use_local_search` | true | 是否启用实体级精确搜索 | 提供具体事实和细节信息，适合回答"谁、什么、何时"类问题 |
 | `use_global_search` | true | 是否启用社区级模式搜索 | 发现高层次模式和主题，适合回答"为什么、如何"类问题 |
+| `use_drift_search` | true | 是否启用DRIFT动态推理搜索 | 结合全局和局部搜索优势，通过动态扩展提供平衡的成本与质量 |
 | `enable_path_visualization` | true | 是否生成可视化路径数据 | 提供搜索过程的透明度，帮助理解和调试搜索逻辑 |
 | `enable_logic_chain` | true | 是否记录详细推理链 | 跟踪每步推理过程，支持结果可解释性和问题诊断 |
 
@@ -87,6 +89,105 @@ deep_search:
 | `global_search_max_data_tokens` | 控制社区报告的总长度 | 8000适合中等规模游戏数据，大型数据集可增至12000 |
 | `global_search_map_max_length` | 单个社区报告摘要长度 | 1000字可充分描述玩家群体特征和行为模式 |
 | `global_search_reduce_max_length` | 最终整合报告长度 | 2000字适合执行摘要，详细报告可增至4000 |
+
+### 3.5 DRIFT搜索参数详解
+
+DRIFT (Dynamic Reasoning and Inference with Flexible Traversal) 搜索是GraphRAG的高级搜索方法，结合了全局和局部搜索的优势。
+
+```yaml
+# 完整的DRIFT搜索配置
+drift_search:
+  # 核心DRIFT参数
+  chat_model_id: "chat"                # 聊天模型ID
+  embedding_model_id: "embedding"     # 嵌入模型ID
+  prompt: "prompts/drift_search_system_prompt.txt"       # 系统提示文件
+  reduce_prompt: "prompts/drift_search_reduce_prompt.txt" # 汇总提示文件
+  
+  # 数据和token控制
+  data_max_tokens: 12000              # 数据最大token数
+  reduce_max_tokens: 8000             # 汇总阶段最大token数
+  reduce_temperature: 0.0             # 汇总阶段温度参数
+  reduce_max_completion_tokens: 4000  # 汇总完成最大token数
+  
+  # 并发和性能控制
+  concurrency: 32                     # 并发请求数量
+  
+  # DRIFT特有参数
+  drift_k_followups: 20               # 后续查询的K值
+  primer_folds: 5                     # 启动器折叠数
+  primer_llm_max_tokens: 12000        # 启动器LLM最大token数
+  n_depth: 3                          # DRIFT搜索深度
+  
+  # 本地搜索集成参数
+  local_search_text_unit_prop: 0.9    # 文本单元权重
+  local_search_community_prop: 0.1    # 社区信息权重
+  local_search_top_k_mapped_entities: 10      # 映射实体数量
+  local_search_top_k_relationships: 10        # 关系数量
+  local_search_max_data_tokens: 12000         # 本地搜索最大token数
+  local_search_temperature: 0.0               # 本地搜索温度
+  local_search_top_p: 1.0                     # 本地搜索top_p
+  local_search_n: 1                           # 本地搜索候选数
+
+# 在deep_search中启用DRIFT
+deep_search:
+  use_drift_search: true              # 启用DRIFT搜索
+  drift_integration_weight: 0.3       # DRIFT结果在最终结果中的权重
+```
+
+#### DRIFT搜索参数详解
+
+| 参数类别 | 参数名称 | 默认值 | 作用说明 | 游戏数据优化建议 |
+|---------|----------|--------|----------|-----------------|
+| **核心控制** | `n_depth` | 3 | DRIFT搜索的递归深度 | 游戏分析建议2-4，平衡深度与性能 |
+| **并发控制** | `concurrency` | 32 | 并发处理的请求数量 | 根据API限制调整，游戏数据可用16-64 |
+| **查询扩展** | `drift_k_followups` | 20 | 生成的后续查询数量 | 复杂游戏分析可增至30-50 |
+| **启动控制** | `primer_folds` | 5 | 启动器的数据分折数 | 大型游戏数据集可增至8-10 |
+| **Token管理** | `data_max_tokens` | 12000 | 数据处理的最大token数 | 游戏数据建议8000-15000 |
+| **结果汇总** | `reduce_max_tokens` | 8000 | 结果汇总的最大token数 | 详细报告可增至12000-16000 |
+
+#### DRIFT搜索工作原理
+
+```
+DRIFT搜索三阶段流程:
+
+第一阶段: Primer (启动器)
+┌─────────────────────────────────────────────────────┐
+│ 1. 查询与社区报告语义匹配                             │
+│ 2. 生成初始答案和后续问题                             │
+│ 3. 评估置信度决定是否继续                             │
+└─────────────────────────────────────────────────────┘
+                        ↓
+第二阶段: Follow-Up (深入探索)  
+┌─────────────────────────────────────────────────────┐
+│ 1. 基于后续问题执行局部搜索                           │
+│ 2. 收集细粒度信息补充初始答案                         │
+│ 3. 动态调整搜索方向和深度                             │
+└─────────────────────────────────────────────────────┘
+                        ↓
+第三阶段: Reduce (结果整合)
+┌─────────────────────────────────────────────────────┐
+│ 1. 整合所有搜索阶段的结果                             │
+│ 2. 生成层次化的答案结构                               │
+│ 3. 平衡全局洞察和局部细节                             │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 为什么选择DRIFT搜索
+
+**优势对比:**
+
+| 搜索方法 | 全局视角 | 局部细节 | 成本效率 | 适用场景 |
+|---------|----------|----------|----------|----------|
+| **Local Search** | ❌ 弱 | ✅ 强 | ✅ 高 | 具体事实查询 |
+| **Global Search** | ✅ 强 | ❌ 弱 | ⚠️ 中等 | 模式和趋势分析 |
+| **DRIFT Search** | ✅ 强 | ✅ 强 | ⚠️ 中等 | 复杂综合分析 |
+| **Deep Search** | ✅ 强 | ✅ 强 | ❌ 低 | 最高质量分析 |
+
+**DRIFT搜索的独特价值:**
+- **成本控制**: 相比Deep Search更经济，相比单一方法更全面
+- **动态调整**: 根据查询复杂度自适应调整搜索策略
+- **层次化结果**: 提供从宏观到微观的分层信息
+- **可扩展性**: 支持大规模游戏数据的高效处理
 
 ### 4. LLM配置参数
 
@@ -152,14 +253,23 @@ deep_search:
 ### 命令行使用
 
 ```bash
-# 基础深度搜索
+# 基础深度搜索 (使用所有可用搜索方法)
 graphrag query --method deep --query "数据中的主要主题是什么？"
 
-# 流式深度搜索
+# 仅使用DRIFT搜索 (平衡成本与质量)
+graphrag query --method drift --query "玩家流失的主要原因分析"
+
+# 深度搜索 + DRIFT增强
 graphrag query --method deep --query "实体之间如何关联？" --streaming
 
-# 自定义响应类型
-graphrag query --method deep --query "总结关键发现" --response-type "执行摘要"
+# DRIFT搜索与自定义响应类型
+graphrag query --method drift --query "游戏平衡性问题分析" --response-type "详细报告"
+
+# 比较不同搜索方法
+graphrag query --method local --query "高价值玩家特征"   # 快速事实查询
+graphrag query --method global --query "高价值玩家特征"  # 社区模式分析  
+graphrag query --method drift --query "高价值玩家特征"   # 平衡分析
+graphrag query --method deep --query "高价值玩家特征"    # 最全面分析
 ```
 
 ### Python API 使用
@@ -181,7 +291,7 @@ async def run_deep_search_example():
     text_units = pd.read_parquet("output/text_units.parquet")
     relationships = pd.read_parquet("output/relationships.parquet")
     
-    # 执行深度搜索
+    # 执行深度搜索 (包含DRIFT)
     response, context_data = await api.deep_search(
         config=config,
         entities=entities,
@@ -191,6 +301,19 @@ async def run_deep_search_example():
         relationships=relationships,
         query="数据中出现的主要模式是什么？",
         response_type="详细分析"
+    )
+    
+    # 或者直接使用DRIFT搜索
+    drift_response, drift_context = await api.drift_search(
+        config=config,
+        entities=entities,
+        communities=communities,
+        community_reports=community_reports,
+        text_units=text_units,
+        relationships=relationships,
+        community_level=2,
+        query="玩家行为模式分析",
+        response_type="详细报告"
     )
     
     print("响应:", response)
@@ -215,6 +338,7 @@ asyncio.run(run_deep_search_example())
 
 ```python
 async def stream_search_example():
+    print("=== Deep Search 流式输出 ===")
     async for chunk in api.deep_search_streaming(
         config=config,
         entities=entities,
@@ -225,8 +349,87 @@ async def stream_search_example():
         query="分析关系模式",
     ):
         print(chunk, end="", flush=True)
+    
+    print("\n\n=== DRIFT Search 流式输出 ===")
+    async for chunk in api.drift_search_streaming(
+        config=config,
+        entities=entities,
+        communities=communities, 
+        community_reports=community_reports,
+        text_units=text_units,
+        relationships=relationships,
+        community_level=2,
+        query="游戏平衡性分析",
+        response_type="分析报告"
+    ):
+        print(chunk, end="", flush=True)
 
 asyncio.run(stream_search_example())
+```
+
+### 搜索方法对比示例
+
+```python
+async def compare_search_methods():
+    """对比不同搜索方法的结果和性能"""
+    
+    query = "高价值玩家的付费行为特征"
+    
+    search_methods = {
+        "local": api.local_search,
+        "global": api.global_search, 
+        "drift": api.drift_search,
+        "deep": api.deep_search
+    }
+    
+    results = {}
+    
+    for method_name, search_func in search_methods.items():
+        start_time = time.time()
+        
+        if method_name == "drift":
+            response, context = await search_func(
+                config=config,
+                entities=entities,
+                communities=communities,
+                community_reports=community_reports,
+                text_units=text_units,
+                relationships=relationships,
+                community_level=2,
+                query=query,
+                response_type="分析报告"
+            )
+        else:
+            response, context = await search_func(
+                config=config,
+                entities=entities,
+                communities=communities,
+                community_reports=community_reports,
+                text_units=text_units,
+                relationships=relationships,
+                query=query
+            )
+        
+        execution_time = time.time() - start_time
+        
+        results[method_name] = {
+            "response": response,
+            "execution_time": execution_time,
+            "confidence": context.get("total_confidence", 0),
+            "context_size": len(str(response))
+        }
+    
+    # 结果对比
+    print("=== 搜索方法性能对比 ===")
+    for method, result in results.items():
+        print(f"{method.title()} Search:")
+        print(f"  执行时间: {result['execution_time']:.2f}秒")
+        print(f"  置信度: {result['confidence']:.2f}")
+        print(f"  响应长度: {result['context_size']} 字符")
+        print(f"  响应预览: {result['response'][:100]}...")
+        print()
+
+asyncio.run(compare_search_methods())
 ```
 
 ## 🌐 Web 界面与可视化Demo
