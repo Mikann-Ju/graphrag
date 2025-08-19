@@ -98,8 +98,10 @@ DRIFT (Dynamic Reasoning and Inference with Flexible Traversal) 搜索是GraphRA
 # 完整的DRIFT搜索配置
 drift_search:
   # 核心DRIFT参数
-  chat_model_id: "chat"                # 聊天模型ID
+  chat_model_id: "chat"                # 聊天模型ID  
   embedding_model_id: "embedding"     # 嵌入模型ID
+  
+  # 🔑 关键提示文件配置
   prompt: "prompts/drift_search_system_prompt.txt"       # 系统提示文件
   reduce_prompt: "prompts/drift_search_reduce_prompt.txt" # 汇总提示文件
   
