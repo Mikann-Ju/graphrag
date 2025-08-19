@@ -105,6 +105,10 @@ drift_search:
   prompt: "prompts/drift_search_system_prompt.txt"       # 系统提示文件
   reduce_prompt: "prompts/drift_search_reduce_prompt.txt" # 汇总提示文件
   
+  # 📎 提示文件链接参考:
+  # 系统提示文件: https://github.com/Mikann-Ju/graphrag/blob/feat/pdf-input-lite-docs/prompts/drift_search_system_prompt.txt
+  # 汇总提示文件: https://github.com/Mikann-Ju/graphrag/blob/feat/pdf-input-lite-docs/prompts/drift_search_reduce_prompt.txt
+  
   # 数据和token控制
   data_max_tokens: 12000              # 数据最大token数
   reduce_max_tokens: 8000             # 汇总阶段最大token数
