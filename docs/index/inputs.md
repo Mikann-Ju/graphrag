@@ -18,7 +18,7 @@ Also see the [outputs](outputs.md) documentation for the final documents table s
 
 ## Formats
 
-We support three file formats out-of-the-box. This covers the overwhelming majority of use cases we have encountered. If you have a different format, we recommend writing a script to convert to one of these, which are widely used and supported by many tools and libraries.
+We support several file formats out-of-the-box. If you have a different format, we recommend converting to one of these widely adopted formats.
 
 ### Plain Text
 
@@ -29,6 +29,22 @@ Plain text files (typically ending in .txt file extension). With plain text file
 CSV files (typically ending in a .csv extension). These are loaded using pandas' [`read_csv` method](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_csv.html) with default options. Each row in a CSV file is treated as a single document. If you have multiple CSV files in your input folder, they will be concatenated into a single resulting `documents` DataFrame.
 
 With the CSV format you can configure the `text_column`, and `title_column` if your data has structured content you would prefer to use. If you do not configure these within the `input` block of your settings.yaml, the title will be the filename as described in the schema above. The `text_column` is assumed to be "text" in your file if not configured specifically. We will also look for and use an "id" column if present, otherwise the ID will be generated as described above.
+
+### PDF (experimental)
+
+PDF files can be ingested using a lightweight loader that extracts page text and basic metadata. When PyMuPDF is available, a heuristic Markdown structuring can be enabled to infer headings from font sizes, which helps preserve section hierarchy for downstream chunking.
+
+Notes:
+- Install optional dependencies: `pip install PyMuPDF PyPDF2`.
+- Configure in `settings.yaml`:
+
+```yaml
+input:
+  file_type: pdf
+  file_pattern: ".*\\.pdf$"
+```
+
+- The loader records page-level tags (e.g., "[Page N]") and stores basic PDF metadata into the `metadata` column. The Markdown heuristic is best-effort; for strict PDF→Markdown fidelity consider dedicated tools like `pymupdf4llm` or `unstructured`.
 
 ### JSON
 

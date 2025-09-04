@@ -29,6 +29,29 @@ To learn more about GraphRAG and how it can be used to enhance your LLM's abilit
 
 To get started with the GraphRAG system we recommend trying the [command line quickstart](https://microsoft.github.io/graphrag/get_started/).
 
+### Lite quickstart (small sample, local friendly)
+
+Use a tiny text sample first and set API keys later.
+
+```bash
+# 1) Create a tiny project with one text file
+mkdir -p ./rag-lite/input
+echo "Hello GraphRAG lite." > ./rag-lite/input/sample.txt
+
+# 2) Initialize workspace (generates .env and settings.yaml)
+graphrag init --root ./rag-lite
+
+# 3) Edit ./rag-lite/settings.yaml for lite runs
+#    - Keep small chunk_size (e.g. 256)
+#    - Keep small batch_size (e.g. 8) and batch_max_tokens (e.g. 1500)
+#    - Disable optional heavy steps first (e.g. claims)
+# 4) Add your API key later in .env, then run index
+# graphrag index --root ./rag-lite
+```
+
+Experimental PDF input (optional): set `input.file_type: pdf` and `file_pattern: ".*\\.pdf$"` in `settings.yaml`.
+Heuristic PDF→Markdown structuring is supported when PyMuPDF is installed. See docs/index/inputs.md.
+
 ## Repository Guidance
 
 This repository presents a methodology for using knowledge graph memory structures to enhance LLM outputs. Please note that the provided code serves as a demonstration and is not an officially supported Microsoft offering.

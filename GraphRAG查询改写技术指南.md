@@ -76,10 +76,12 @@
 
 ## 技术实现
 
+> **💡 重要说明**: 本文档中的查询改写模块是基于GraphRAG架构的**自定义扩展实现**，并非Microsoft官方GraphRAG的原生功能。该实现位于 `graphrag/query/rewrite/query_rewriter.py`，提供了完整的查询改写功能。
+
 ### 核心架构
 
 ```python
-# 查询改写引擎的基本使用
+# 查询改写引擎的基本使用（自定义实现）
 from graphrag.query.rewrite.query_rewriter import (
     QueryRewriteEngine, 
     RewriteStrategy,
@@ -368,8 +370,43 @@ class RewriteMonitor:
         )
 ```
 
+## 技术背景说明
+
+### 📚 关于实现来源
+
+本查询改写系统是基于GraphRAG架构的**自定义扩展实现**，具有以下特点：
+
+- **🏗️ 自主开发**: 非Microsoft官方GraphRAG原生功能，是针对游戏分析场景的专门优化
+- **🎯 领域特化**: 专门针对游戏行业的查询模式和分析需求进行设计
+- **🔧 完整实现**: 包含完整的查询改写引擎、多策略支持和异步处理能力
+- **📈 生产就绪**: 具备错误处理、监控和性能优化功能
+
+### 🔄 替代方案（可选）
+
+如需要使用其他技术栈实现类似功能：
+
+1. **Neo4j GraphRAG**
+   ```python
+   from neo4j_graphrag import Text2CypherRetriever
+   retriever = Text2CypherRetriever(llm=llm, neo4j_driver=driver)
+   ```
+
+2. **LangChain + 自定义提示**
+   ```python
+   from langchain.chains import GraphCypherQAChain
+   chain = GraphCypherQAChain.from_llm(llm=llm, graph=graph)
+   ```
+
+3. **纯LLM实现**
+   ```python
+   # 使用LLM直接进行查询改写
+   async def simple_rewrite(query: str, llm):
+       prompt = f"请将以下查询改写为更适合图数据库检索的形式: {query}"
+       return await llm.agenerate([prompt])
+   ```
+
 ## 总结
 
-查询改写技术作为GraphRAG系统的重要组成部分，通过多策略的智能化查询优化，显著提升了知识图谱检索的精度和用户体验。在游戏分析场景中，专业化的改写策略更是将通用查询转换为行业专业表达，为精准的数据分析提供了强有力的技术支撑。
+查询改写技术作为GraphRAG系统的重要扩展组件，通过多策略的智能化查询优化，显著提升了知识图谱检索的精度和用户体验。在游戏分析场景中，专业化的改写策略更是将通用查询转换为行业专业表达，为精准的数据分析提供了强有力的技术支撑。
 
-通过合理配置和优化改写策略，GraphRAG系统能够更好地理解用户意图，提供更准确、更有价值的分析结果。 
+通过合理配置和优化改写策略，GraphRAG系统能够更好地理解用户意图，提供更准确、更有价值的分析结果。该自定义实现展示了在开源项目基础上进行领域特化扩展的最佳实践。 

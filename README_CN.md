@@ -63,6 +63,28 @@ GraphRAG 使用标准化的知识模型，包括：
 pip install graphrag
 ```
 
+### 轻量快速开始（本地小样本）
+
+无需立即配置 API Key，先用极小文本样本跑通流程：
+
+```bash
+# 1) 创建最小项目与样例文本
+mkdir -p ./rag-lite/input
+echo "你好，GraphRAG 轻量模式。" > ./rag-lite/input/sample.txt
+
+# 2) 初始化（生成 .env 与 settings.yaml）
+graphrag init --root ./rag-lite
+
+# 3) 在 ./rag-lite/settings.yaml 中采用轻量参数
+#    - chunk_size: 256
+#    - batch_size: 8, batch_max_tokens: 1500
+#    - 先不启用 claims（可选的重活步骤）
+# 4) 待获取 API Key 后再执行索引
+# graphrag index --root ./rag-lite
+```
+
+可选：PDF 输入（实验性）。在 `settings.yaml` 中设置 `input.file_type: pdf` 与 `file_pattern: ".*\\.pdf$"`，安装 PyMuPDF 后可启用启发式 PDF→Markdown 层级还原。详见 docs/index/inputs.md。
+
 ### 基本使用
 
 1. **初始化项目**
